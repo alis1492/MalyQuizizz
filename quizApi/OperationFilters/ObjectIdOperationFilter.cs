@@ -8,7 +8,7 @@ public class ObjectIdOperationFilter : IOperationFilter
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
         var idParam = operation.Parameters?
-            .FirstOrDefault(p => p.Name.Equals("id", StringComparison.OrdinalIgnoreCase)
+            .FirstOrDefault(p => p.Name!.Equals("id", StringComparison.OrdinalIgnoreCase)
                             && p.In == ParameterLocation.Path);
 
         // First cast to the concrete type, then assign

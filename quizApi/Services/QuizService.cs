@@ -19,13 +19,15 @@ public class QuizService(
     IMongoCollection<Quiz> collection,
     IMapper mapper,
     IValidator<CreateQuestionDTO> createQuestionValidator,
-    IValidator<UpdateQuestionDTO> updateQuestionValidator
+    IValidator<UpdateQuestionDTO> updateQuestionValidator,
+    ILogger<QuizService> logger
 ) : IQuizService
 {
     private readonly IMongoCollection<Quiz> _collection = collection;
     private readonly IMapper _mapper = mapper;
     private readonly IValidator<CreateQuestionDTO> _createQuestionValidator = createQuestionValidator;
     private readonly IValidator<UpdateQuestionDTO> _updateQuestionValidator = updateQuestionValidator;
+    private readonly ILogger<QuizService> _logger = logger;
 
     // Get all quizes asyncronously
     public async Task<List<QuizDTO>> GetQuizzes(int? limit = null, int? skip = null)

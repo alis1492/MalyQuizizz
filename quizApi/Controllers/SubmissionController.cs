@@ -33,12 +33,6 @@ public class SubmissionController(
         return Ok(submission);
     }
 
-    /// <summary>
-    /// For test purposes only, normally submission must be created with quizStart, 
-    /// submitted with quizSubmit and graded either automatically or after some time
-    /// </summary>
-    /// <param name="dto">CreateSubmissionDTO</param>
-    /// <returns></returns>
     [HttpPost]
     public async Task<IActionResult> CreateSubmission([FromBody] CreateSubmissionDTO dto)
     {

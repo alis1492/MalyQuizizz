@@ -43,11 +43,11 @@ public class UpdateQuestionValidator : AbstractValidator<UpdateQuestionDTO>
 
                 if(question.Type == QuestionType.singleChoice)
                 {
-                    return answerDTOs.Any(a => a.IsCorrect);
+                    return answerDTOs!.Any(a => a.IsCorrect);
                 }
                 else if(question.Type == QuestionType.multipleChoice)
                 {
-                    return answerDTOs.Count(a => a.IsCorrect) > 1;
+                    return answerDTOs!.Count(a => a.IsCorrect) > 1;
                 }
 
                 return false;

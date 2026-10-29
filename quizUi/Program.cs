@@ -1,4 +1,6 @@
 using quizUi.Components;
+using quizUi.Options;
+using quizUi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,8 +8,21 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Configuration
+builder.Services.AddOptions<QuizApiOptions>()
+    .Bind(builder.Configuration.GetSection(QuizApiOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+// Custom Services
+builder.Services.AddScoped<QuizStateService>();
+
 // HttpClientFactory for api calls
-builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("QuizApiClient", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["QuizApiOptions:BaseUrl"]!);
+});
+
 
 var app = builder.Build();
 

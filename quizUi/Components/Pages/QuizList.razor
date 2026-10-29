@@ -1,0 +1,63 @@
+@page "/quizzes"
+@using quizShared.DTOs
+@inject IHttpClientFactory Factory
+@inject ILogger<QuizList> Logger
+
+<PageTitle>Quizy</PageTitle>
+
+<h1>Dostępne quizy</h1>
+
+@if (error is not null)
+{
+    <p class="error">@error</p>
+    <button @onclick="LoadAsync">Spróbuj ponownie</button>
+}
+else if (quizzes is null)
+{
+    <p>Ładowanie quizów...</p>
+}
+else if (quizzes.Count == 0)
+{
+    <p>Nie ma jeszcze żadnych quizów.</p>
+}
+else
+{
+    <ul class="quiz-list">
+        @foreach (var quiz in quizzes)
+        {
+            <li>
+                <a href="/quiz/@quiz.Id">
+                    <strong>@quiz.Title</strong>
+                </a>
+                <p>@quiz.Description</p>
+                <small>
+                    @quiz.Subject · @quiz.Questions.Count pytań · @quiz.Questions.Sum(q => q.Points) pkt
+                </small>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<QuizDTO>? quizzes;
+    private string? error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        error = null;
+        quizzes = null;
+
+        try
+        {
+            var http = Factory.CreateClient("QuizApiClient");
+            quizzes = await http.GetFromJsonAsync<List<QuizDTO>>("quiz") ?? [];
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load quiz list");
+            error = "Nie udało się załadować listy quizów.";
+        }
+    }
+}

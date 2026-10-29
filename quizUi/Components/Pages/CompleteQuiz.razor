@@ -1,0 +1,260 @@
+@page "/quiz/{QuizId}/complete"
+@using quizShared
+@using quizShared.DTOs
+@using quizUi.Services
+@inject IHttpClientFactory Factory
+@inject ILogger<CompleteQuiz> Logger
+@inject QuizStateService QuizState
+
+<PageTitle>@quiz?.Title ?? "Quiz"</PageTitle>
+
+@if (quiz is null && error is null)
+{
+    <p>Ładowanie quizu...</p>
+}
+else if (error is not null)
+{
+    <p class="error">@error</p>
+    <button @onclick="LoadQuizAsync">Spróbuj ponownie</button>
+}
+else if (result is not null)
+{
+    <section class="result">
+        <h2>Wynik</h2>
+        <p>
+            @result.Score.TotalPoints / @result.Score.MaxPoints punktów
+            (@result.Score.Percentage.ToString("0.0")%)
+        </p>
+
+        @foreach (var question in quiz!.Questions)
+        {
+            var userAnswer = result.UserAnswers?.FirstOrDefault(ua => ua.QuestionId == question.Id);
+            var selectedIds = userAnswer?.SelectedAnswers ?? [];
+            var correctIds = userAnswer?.CorrectAnswers ?? [];
+            var fullyCorrect = IsFullyCorrect(userAnswer);
+
+            <article class="question-review @(fullyCorrect ? "correct" : "incorrect")">
+                <h3>@question.Text <small>(@question.Points pkt)</small></h3>
+
+                @foreach (var answer in question.Answers)
+                {
+                    var wasSelected = selectedIds.Contains(answer.Id);
+                    var wasCorrect = correctIds.Contains(answer.Id);
+
+                    <div class="answer @(wasCorrect ? "is-correct" : "") @(wasSelected ? "is-selected" : "")">
+                        <span>@answer.Text</span>
+                        @if (wasCorrect) { <span> ✓ poprawna</span> }
+                        @if (wasSelected && !wasCorrect) { <span> ✗ wybrana błędnie</span> }
+                    </div>
+                }
+
+                <p>Zdobyte punkty: @(userAnswer?.PointsAwarded ?? 0) / @question.Points</p>
+            </article>
+        }
+
+        <a href="/quizzes">Wróć do listy quizów</a>
+    </section>
+}
+else
+{
+    <h1>@quiz!.Title</h1>
+    <p>@quiz.Description</p>
+
+    var question = quiz.Questions[currentIndex];
+    var isLast = currentIndex == quiz.Questions.Count - 1;
+
+    <p>Pytanie @(currentIndex + 1) z @quiz.Questions.Count</p>
+
+    <fieldset class="question">
+        <legend>@question.Text <small>(@question.Points pkt)</small></legend>
+        @foreach (var answer in question.Answers)
+        {
+            <label>
+                <input type="@(question.Type == QuestionType.singleChoice ? "radio" : "checkbox")"
+                    name="@question.Id"
+                    value="@answer.Id"
+                    checked="@(IsSelected(question.Id, answer.Id))"
+                    @onchange="e => OnToggle(question, answer, e.Value?.ToString())" />
+                @answer.Text
+            </label>
+        }
+    </fieldset>
+
+    <div class="nav">
+        <button type="button" @onclick="Previous" disabled="@(currentIndex == 0)">Wstecz</button>
+
+        @if (isLast)
+        {
+            <EditForm Model="this" OnValidSubmit="SubmitAsync" FormName="completeQuiz">
+                <button type="submit" disabled="@isSubmitting">
+                    @(isSubmitting ? "Zapisywanie..." : "Zatwierdź odpowiedzi")
+                </button>
+            </EditForm>
+        }
+        else
+        {
+            <button type="button" @onclick="Next">Dalej</button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string QuizId { get; set; } = "";
+
+    private QuizDTO? quiz;
+    private SubmissionDTO? result;
+    private string? error;
+    private bool isSubmitting;
+    private int currentIndex;
+    private HttpClient Http = default!;
+
+    private readonly Dictionary<string, List<string>> selections = new();
+
+    // Placeholder until auth is wired in
+    private const int CurrentUserType = 0;
+    private const string CurrentUserId = "showcase-user";
+
+    protected override void OnInitialized()
+    {
+        Http = Factory.CreateClient("QuizApiClient");
+    }
+
+    protected override Task OnParametersSetAsync()
+    {
+        // Already loaded (e.g., navigating between questions doesn't re-trigger this)
+        if (quiz is not null && error is null)
+            return Task.CompletedTask;
+
+        var preloaded = QuizState.ConsumeCurrentQuiz();
+
+        // Preloaded path — use it only if the ID matches
+        if (preloaded is not null && preloaded.Id == QuizId)
+        {
+            quiz = preloaded;
+            currentIndex = 0;
+            selections.Clear();
+            foreach (var q in quiz.Questions)
+                selections[q.Id] = [];
+            return Task.CompletedTask;
+        }
+
+        // Otherwise fetch from API
+        return LoadQuizAsync();
+    }
+
+    private async Task LoadQuizAsync()
+    {
+        error = null;
+        try
+        {
+            quiz = await Http.GetFromJsonAsync<QuizDTO>($"quiz/{QuizId}");
+            if (quiz is null)
+            {
+                error = "Nie znaleziono quizu.";
+                return;
+            }
+
+            selections.Clear();
+            foreach (var q in quiz.Questions)
+                selections[q.Id] = [];
+
+            currentIndex = 0;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load quiz {QuizId}", QuizId);
+            error = "Nie udało się załadować quizu.";
+        }
+    }
+
+
+    private async Task Next()
+    {
+        if (quiz is null) return;
+        if (currentIndex < quiz.Questions.Count - 1)
+            currentIndex++;
+    }
+
+    private void Previous()
+    {
+        if (currentIndex > 0)
+            currentIndex--;
+    }
+
+    private bool IsSelected(string questionId, string answerId)
+        => selections.TryGetValue(questionId, out var list) && list.Contains(answerId);
+
+    private void OnToggle(QuestionDTO question, AnswerDTO answer, string? value)
+    {
+        var list = selections[question.Id] ??= [];
+
+        if (question.Type == QuestionType.singleChoice)
+        {
+            // For radio, e.Value is the value attribute (the answer ID)
+            list.Clear();
+            if (value == answer.Id) list.Add(answer.Id);
+            return;
+        }
+
+        // For checkbox, e.Value is "true"/"false" (capitalized)
+        if (bool.TryParse(value, out var isChecked) && isChecked)
+        {
+            if (!list.Contains(answer.Id)) list.Add(answer.Id);
+        }
+        else
+        {
+            list.Remove(answer.Id);
+        }
+    }
+
+    private static bool IsFullyCorrect(UserAnswerDTO? ua)
+        => ua is not null
+           && ua.CorrectAnswers.Count > 0
+           && ua.SelectedAnswers.Count == ua.CorrectAnswers.Count
+           && ua.SelectedAnswers.All(ua.CorrectAnswers.Contains);
+
+    private async Task SubmitAsync()
+    {
+        if (quiz is null || isSubmitting) return;
+        isSubmitting = true;
+        error = null;
+
+        try
+        {
+            // 1. Create submission shell
+            var createPayload = new CreateSubmissionDTO
+            {
+                QuizId = quiz.Id,
+                UserType = CurrentUserType,
+                UserId = CurrentUserId
+            };
+
+            var createResponse = await Http.PostAsJsonAsync("submission", createPayload);
+            createResponse.EnsureSuccessStatusCode();
+            var submission = await createResponse.Content.ReadFromJsonAsync<SubmissionDTO>()
+                ?? throw new InvalidOperationException("API returned empty submission.");
+
+            // 2. Submit answers — API grades and returns the result in one call
+            var answerPayload = quiz.Questions.Select(q => new SubmitUserAnswerDTO
+            {
+                QuestionId = q.Id,
+                SelectedAnswers = selections.TryGetValue(q.Id, out var s) ? s : []
+            }).ToList();
+
+            var answerResponse = await Http.PostAsJsonAsync($"submission/{submission.Id}", answerPayload);
+            answerResponse.EnsureSuccessStatusCode();
+
+            result = await answerResponse.Content.ReadFromJsonAsync<SubmissionDTO>()
+                ?? throw new InvalidOperationException("API returned empty graded submission.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to submit quiz {QuizId}", quiz.Id);
+            error = "Nie udało się zapisać odpowiedzi. Spróbuj ponownie.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

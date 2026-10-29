@@ -1,4 +1,6 @@
-﻿@inherits LayoutComponentBase
+﻿@using quizUi.Components.Helpers
+@inherits LayoutComponentBase
+@inject ILogger<MainLayout> Logger
 
 <div class="page">
     <div class="sidebar">
@@ -11,7 +13,15 @@
         </div>
 
         <article class="content px-4">
-            @Body
+            <QuizErrorBoundary>
+                <ChildContent>
+                    @Body
+                </ChildContent>
+
+                <ErrorContent Context="ex">
+                    <p>Something went wrong. Please try again later.</p>
+                </ErrorContent>
+            </QuizErrorBoundary>
         </article>
     </main>
 </div>

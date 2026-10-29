@@ -1,7 +1,68 @@
 ﻿@page "/"
+@using System.Text.Json
+@using quizShared
+@using quizShared.DTOs
+@inject IHttpClientFactory HttpClientFactory
+@inject ILogger<Home> Logger
+@inject IConfiguration Configuration
 
+
+
+@* body *@
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>Zapraszam na Stronę Główną</h1>
 
-Welcome to your new app.
+@if (_error is not null)
+{
+    <p>@_error</p>
+}
+else
+{
+    
+}
+
+<h2>Lista Quizów</h2>
+
+@foreach(var quiz in _quizzes)
+{
+    <h3>
+        <a href="quiz/@quiz.Id">@quiz.Title</a>
+    </h3>
+}
+
+
+
+@code {
+    private List<QuizDTO> _quizzes = [];
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Get an httpClient that calls the api
+            var client = HttpClientFactory.CreateClient("QuizApiClient");
+
+            // Fetch quizzes from api
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            };
+            var quizzes = await client.GetFromJsonAsync<List<QuizDTO>>(
+                "quiz",
+                options
+            );
+
+            if(quizzes == null || quizzes?.Count == 0)
+                throw new HttpRequestException("Failed to fetch quizzes, the List is empty or null");
+            
+            _quizzes = quizzes!;
+        }
+        catch(HttpRequestException e)
+        {
+            _error = "Nie udało się pobrać quizy, sprobuj później";
+            Logger.LogError(e, e.Message);
+        }
+    }
+}

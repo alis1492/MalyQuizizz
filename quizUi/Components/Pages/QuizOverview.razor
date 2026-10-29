@@ -1,0 +1,100 @@
+@page "/quiz/{QuizId}"
+@using quizShared.DTOs
+@using quizUi.Services
+@inject IHttpClientFactory Factory
+@inject ILogger<QuizOverview> Logger
+@inject NavigationManager Nav
+@inject QuizStateService QuizState
+
+<PageTitle>@quiz?.Title ?? "Quiz"</PageTitle>
+
+@if (error is not null)
+{
+    <p class="error">@error</p>
+    <a href="/quizzes">Wróć do listy quizów</a>
+}
+else if (quiz is null)
+{
+    <p>Ładowanie quizu...</p>
+}
+else
+{
+    <article class="quiz-overview">
+        <h1>@quiz.Title</h1>
+        <p class="description">@quiz.Description</p>
+
+        <dl class="meta">
+            <dt>Przedmiot</dt>
+            <dd>@quiz.Subject</dd>
+
+            <dt>Liczba pytań</dt>
+            <dd>@quiz.Questions.Count</dd>
+
+            <dt>Maksymalna liczba punktów</dt>
+            <dd>@quiz.Questions.Sum(q => q.Points)</dd>
+
+            @if (quiz.Settings.TimeLimit is not null)
+            {
+                <dt>Limit czasu</dt>
+                <dd>@quiz.Settings.TimeLimit min</dd>
+            }
+
+            @if (quiz.Settings.DefaultQuestionTimeLimit is not null)
+            {
+                <dt>Limit czasu na pytanie</dt>
+                <dd>@quiz.Settings.DefaultQuestionTimeLimit s</dd>
+            }
+
+            <dt>Losowa kolejność pytań</dt>
+            <dd>@(quiz.Settings.ShuffleQuestions ? "Tak" : "Nie")</dd>
+
+            <dt>Losowa kolejność odpowiedzi</dt>
+            <dd>@(quiz.Settings.ShuffleAnswers ? "Tak" : "Nie")</dd>
+        </dl>
+
+        @if (quiz.Questions.Count == 0)
+        {
+            <p class="warning">Ten quiz nie ma jeszcze pytań.</p>
+        }
+        else
+        {
+            <button @onclick="StartQuiz">Rozpocznij quiz</button>
+        }
+    </article>
+}
+
+@code {
+    [Parameter] public string QuizId { get; set; } = "";
+
+    private QuizDTO? quiz;
+    private string? error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (quiz is not null && quiz.Id == QuizId && error is null)
+            return;
+
+        quiz = null;
+        error = null;
+
+        try
+        {
+            var Http = Factory.CreateClient("QuizApiClient");
+            quiz = await Http.GetFromJsonAsync<QuizDTO>($"quiz/{QuizId}");
+            if (quiz is null)
+                error = "Nie znaleziono quizu.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load quiz {QuizId}", QuizId);
+            error = "Nie udało się załadować quizu.";
+        }
+    }
+
+    private void StartQuiz()
+    {
+        if (quiz is null) return;
+        QuizState.SetCurrentQuiz(quiz);
+        Nav.NavigateTo($"/quiz/{quiz.Id}/complete");
+    }
+}
