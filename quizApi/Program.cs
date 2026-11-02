@@ -10,22 +10,34 @@ using quizApi.Models;
 using quizApi.OperationFilters;
 using quizApi.Services;
 using quizApi.Validators;
+using quizApi.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+// App Configuration
+builder.Services
+    .AddOptions<JwtOptions>()
+    .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
 // *** Custom Services ***
+// MongoDB Configuration
 builder.Services
     .AddMongoClient()
     .AddDatabase()
     .AddCollection<Quiz>("quizes")
     .AddCollection<Submission>("submissions");
-builder.Services.AddScoped<IQuizService, QuizService>();
-builder.Services.AddScoped<ISubmissionService, SubmissionService>();
-builder.Services.AddAutoMapper(cfg => { }, typeof(Program).Assembly);
-builder.Services.AddValidatorsFromAssemblyContaining<CreateQuestionValidator>();
-builder.Services.AddExceptionHandler<DevelopmentExceptionHandler>();
-builder.Services.AddProblemDetails();
+
+// General Services
+builder.Services
+    .AddScoped<IQuizService, QuizService>()
+    .AddScoped<ISubmissionService, SubmissionService>()
+    .AddAutoMapper(cfg => { }, typeof(Program).Assembly)
+    .AddValidatorsFromAssemblyContaining<CreateQuestionValidator>()
+    .AddExceptionHandler<DevelopmentExceptionHandler>()
+    .AddProblemDetails();
 // *** Custom Services ***
 
 builder.Services.AddControllers();
