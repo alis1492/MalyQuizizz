@@ -1,0 +1,241 @@
+@page "/quiz/create"
+@using quizShared
+@using quizShared.DTOs
+@using quizUi.Services
+@inject QuizApiService Api
+@inject NavigationManager Nav
+@inject ILogger<CreateQuiz> Logger
+
+<PageTitle>Utwórz quiz</PageTitle>
+
+<h1>Utwórz nowy quiz</h1>
+
+@if (error is not null)
+{
+    <p class="error">@error</p>
+}
+
+@if (createdQuizId is null)
+{
+    @* Step 1: quiz shell *@
+    <EditForm Model="quizModel" OnValidSubmit="CreateQuizAsync" FormName="createQuiz">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div>
+            <label>Tytuł</label>
+            <InputText @bind-Value="quizModel.Title" />
+            <ValidationMessage For="() => quizModel.Title" />
+        </div>
+
+        <div>
+            <label>Opis</label>
+            <InputTextArea @bind-Value="quizModel.Description" />
+            <ValidationMessage For="() => quizModel.Description" />
+        </div>
+
+        <div>
+            <label>Przedmiot</label>
+            <InputSelect @bind-Value="quizModel.Subject">
+                @foreach (var subject in Enum.GetValues<Subject>())
+                {
+                    <option value="@((int)subject)">@subject</option>
+                }
+            </InputSelect>
+        </div>
+
+        <fieldset>
+            <legend>Ustawienia</legend>
+
+            <label>
+                <InputCheckbox @bind-Value="quizModel.Settings.ShuffleQuestions" />
+                Losowa kolejność pytań
+            </label>
+
+            <label>
+                <InputCheckbox @bind-Value="quizModel.Settings.ShuffleAnswers" />
+                Losowa kolejność odpowiedzi
+            </label>
+
+            <div>
+                <label>Limit czasu quizu (min, opcjonalnie)</label>
+                <InputNumber @bind-Value="quizModel.Settings.TimeLimit" />
+            </div>
+
+            <div>
+                <label>Limit czasu na pytanie (s, opcjonalnie)</label>
+                <InputNumber @bind-Value="quizModel.Settings.DefaultQuestionTimeLimit" />
+            </div>
+        </fieldset>
+
+        <button type="submit" disabled="@isBusy">
+            @(isBusy ? "Tworzenie..." : "Utwórz quiz")
+        </button>
+    </EditForm>
+}
+else
+{
+    @* Step 2: add questions *@
+    <p>Quiz utworzony. Dodaj pytania.</p>
+
+    @if (addedQuestions.Count > 0)
+    {
+        <ol class="added-questions">
+            @foreach (var q in addedQuestions)
+            {
+                <li>@q.Text <small>(@q.Answers.Count odp.)</small></li>
+            }
+        </ol>
+    }
+
+    <h2>Dodaj pytanie @(addedQuestions.Count + 1)</h2>
+
+    <EditForm Model="questionModel" OnValidSubmit="AddQuestionAsync" FormName="addQuestion">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div>
+            <label>Typ pytania</label>
+            <InputSelect @bind-Value="questionModel.Type">
+                <option value="0">Jednokrotny wybór</option>
+                <option value="1">Wielokrotny wybór</option>
+            </InputSelect>
+        </div>
+
+        <div>
+            <label>Treść pytania</label>
+            <InputTextArea @bind-Value="questionModel.Text" />
+        </div>
+
+        <div>
+            <label>Punkty</label>
+            <InputNumber @bind-Value="questionModel.Points" />
+        </div>
+
+        <fieldset>
+            <legend>Odpowiedzi</legend>
+
+            @for (int i = 0; i < questionModel.Answers.Count; i++)
+            {
+                var index = i;
+                <div class="answer-row">
+                    <InputText @bind-Value="questionModel.Answers[index].Text" placeholder="Treść odpowiedzi" />
+                    <InputCheckbox @bind-Value="questionModel.Answers[index].IsCorrect" />
+                    <label>Poprawna</label>
+
+                    @if (questionModel.Answers.Count > 2)
+                    {
+                        <button type="button" @onclick="() => RemoveAnswer(index)">Usuń</button>
+                    }
+                </div>
+            }
+
+            @if (questionModel.Answers.Count < 10)
+            {
+                <button type="button" @onclick="AddAnswer">Dodaj odpowiedź</button>
+            }
+        </fieldset>
+
+        <button type="submit" disabled="@isBusy">
+            @(isBusy ? "Dodawanie..." : "Dodaj pytanie")
+        </button>
+    </EditForm>
+
+    <hr />
+
+    <button type="button" @onclick="Finish">Zakończ i przejdź do quizu</button>
+}
+
+
+@code {
+    private CreateQuizDTO quizModel = new()
+    {
+        Title = "",
+        Description = "",
+        TeacherId = "123456789012345678901234",
+        Subject = (int)Subject.Other,
+        Settings = new QuizSettings()
+    };
+
+    private CreateQuestionDTO questionModel = NewQuestionModel();
+    private readonly List<CreateQuestionDTO> addedQuestions = [];
+
+    private string? createdQuizId;
+    private string? error;
+    private bool isBusy;
+
+    private static CreateQuestionDTO NewQuestionModel() => new()
+    {
+        Type = 0,
+        Text = "",
+        Points = 1,
+        Answers = [
+            new() { Text = "", IsCorrect = false },
+            new() { Text = "", IsCorrect = false }
+        ]
+    };
+
+    private async Task CreateQuizAsync()
+    {
+        if (isBusy) return;
+        isBusy = true;
+        error = null;
+
+        try
+        {
+            createdQuizId = await Api.CreateQuizAsync(quizModel);
+            if (createdQuizId is null)
+                error = "API nie zwróciło identyfikatora quizu.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create quiz");
+            error = "Nie udało się utworzyć quizu.";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void AddAnswer()
+    {
+        if (questionModel.Answers.Count < 10)
+            questionModel.Answers.Add(new() { Text = "", IsCorrect = false });
+    }
+
+    private void RemoveAnswer(int index)
+    {
+        if (questionModel.Answers.Count > 2)
+            questionModel.Answers.RemoveAt(index);
+    }
+
+    private async Task AddQuestionAsync()
+    {
+        if (isBusy || createdQuizId is null) return;
+        isBusy = true;
+        error = null;
+
+        try
+        {
+            await Api.AddQuestionAsync(createdQuizId, questionModel);
+            addedQuestions.Add(questionModel);
+            questionModel = NewQuestionModel();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to add question to quiz {QuizId}", createdQuizId);
+            error = "Nie udało się dodać pytania.";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void Finish()
+    {
+        if (createdQuizId is null) return;
+        Nav.NavigateTo($"/quiz/{createdQuizId}");
+    }
+}

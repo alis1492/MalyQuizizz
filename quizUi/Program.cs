@@ -14,14 +14,15 @@ builder.Services.AddOptions<QuizApiOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-// Custom Services
-builder.Services.AddScoped<QuizStateService>();
-
 // HttpClientFactory for api calls
 builder.Services.AddHttpClient("QuizApiClient", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["QuizApiOptions:BaseUrl"]!);
 });
+
+// Custom Services
+builder.Services.AddScoped<QuizStateService>()
+    .AddScoped<QuizApiService>();
 
 
 var app = builder.Build();

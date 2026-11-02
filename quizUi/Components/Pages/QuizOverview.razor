@@ -1,7 +1,7 @@
 @page "/quiz/{QuizId}"
 @using quizShared.DTOs
 @using quizUi.Services
-@inject IHttpClientFactory Factory
+@inject QuizApiService Api
 @inject ILogger<QuizOverview> Logger
 @inject NavigationManager Nav
 @inject QuizStateService QuizState
@@ -79,8 +79,7 @@ else
 
         try
         {
-            var Http = Factory.CreateClient("QuizApiClient");
-            quiz = await Http.GetFromJsonAsync<QuizDTO>($"quiz/{QuizId}");
+            quiz = await Api.GetQuizAsync(QuizId);
             if (quiz is null)
                 error = "Nie znaleziono quizu.";
         }

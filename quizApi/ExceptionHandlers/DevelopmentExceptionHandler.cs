@@ -38,6 +38,13 @@ public class DevelopmentExceptionHandler(
             await httpContext.Response.WriteAsJsonAsync(payload, cancellationToken);
             return true;
         }
+        else if(exception is ArgumentException)
+        {
+            var payload = new DevelopmentExceptionDTO("Bad Request", 400, exception);
+            httpContext.Response.StatusCode = 400;
+            await httpContext.Response.WriteAsJsonAsync(payload, cancellationToken);
+            return true;
+        }
 
         // * true means handled
         // * false means unhandled - rethrow

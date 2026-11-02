@@ -22,7 +22,7 @@ public class SubmissionService(
 
     public async Task<List<SubmissionDTO>> GetSubmissions(int? limit = null, int? skip = null)
     {
-        var submissions = await GetFullSubmissions(limit, skip);
+        var submissions = await GetSubmissionModels(limit, skip);
 
         // map them to DTO
         List<SubmissionDTO> submissionDTOs = [];
@@ -36,7 +36,7 @@ public class SubmissionService(
         return submissionDTOs;
     }
     
-    public async Task<List<Submission>> GetFullSubmissions(int? limit = null, int? skip = null)
+    public async Task<List<Submission>> GetSubmissionModels(int? limit = null, int? skip = null)
     {
         var submissions = await _submissionCollection
             .Find(_ => true)
@@ -49,11 +49,11 @@ public class SubmissionService(
     // Get individual submission
     public async Task<SubmissionDTO> GetSubmissionById(ObjectId id)
     {
-        var submission = await GetFullSubmissionById(id);
+        var submission = await GetSubmissionModelById(id);
         return _mapper.Map<SubmissionDTO>(submission);
     }
     
-    public async Task<Submission> GetFullSubmissionById(ObjectId id)
+    public async Task<Submission> GetSubmissionModelById(ObjectId id)
     {
         var submission = await _submissionCollection
             .Find(s => s.Id == id)
@@ -107,8 +107,8 @@ public class SubmissionService(
 
     public async Task<SubmissionDTO> Grade(ObjectId id)
     {
-        var submission = await GetFullSubmissionById(id);
-        var quiz = await _quizService.GetFullQuizById(submission.QuizId);
+        var submission = await GetSubmissionModelById(id);
+        var quiz = await _quizService.GetQuizModel(submission.QuizId);
 
         foreach(var userAnswer in submission.UserAnswers)
         {

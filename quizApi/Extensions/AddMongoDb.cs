@@ -5,7 +5,11 @@ namespace quizApi.Extensions;
 
 public static class MongoDbExtensions
 {
-    // Add a new client Singleton using a uri from environment variable
+    /// <summary>
+    /// Add a new client Singleton using a uri from environment variable
+    /// </summary>
+    /// <param name="services"></param>
+    /// <returns></returns>
     public static IServiceCollection AddMongoClient(this IServiceCollection services)
     {
         var camelCaseConvention = new ConventionPack { new CamelCaseElementNameConvention() };
@@ -14,7 +18,12 @@ public static class MongoDbExtensions
         services.AddSingleton(client);
         return services;
     }
-    // Add a new database Singleton from a given name
+    /// <summary>
+    /// Add a new database Singleton from a given name
+    /// </summary>
+    /// <param name="services"></param>
+    /// <param name="dbName"></param>
+    /// <returns></returns>
     public static IServiceCollection AddDatabase(this IServiceCollection services, string dbName = "quizApi")
     {
         services.AddSingleton<IMongoDatabase>(sp =>
@@ -25,7 +34,13 @@ public static class MongoDbExtensions
         });
         return services;
     }
-    // Add a new collection Singleton from a given name
+    /// <summary>
+    /// Add a new collection Singleton from a given name
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="services"></param>
+    /// <param name="collectionName"></param>
+    /// <returns></returns>
     public static IServiceCollection AddCollection<T>(this IServiceCollection services, string collectionName)
     {
         services.AddSingleton<IMongoCollection<T>>(sp =>

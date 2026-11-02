@@ -1,0 +1,414 @@
+@page "/quiz/{QuizId}/edit"
+@using quizShared
+@using quizShared.DTOs
+@using quizUi.Services
+@inject QuizApiService Api
+@inject NavigationManager Nav
+@inject ILogger<QuizEdit> Logger
+
+<PageTitle>Edytuj quiz</PageTitle>
+
+@if (error is not null)
+{
+    <p class="error">@error</p>
+    <button @onclick="LoadAsync">Spróbuj ponownie</button>
+}
+else if (quiz is null)
+{
+    <p>Ładowanie quizu...</p>
+}
+else
+{
+    <h1>Edytuj: @quiz.Title</h1>
+
+    @* ── Quiz metadata ── *@
+    <section>
+        <h2>Metadane quizu</h2>
+
+        <EditForm Model="quizModel" OnValidSubmit="SaveQuizAsync" FormName="editQuiz">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div>
+                <label>Tytuł</label>
+                <InputText @bind-Value="quizModel.Title" />
+            </div>
+
+            <div>
+                <label>Opis</label>
+                <InputTextArea @bind-Value="quizModel.Description" />
+            </div>
+
+            <div>
+                <label>Przedmiot</label>
+                <InputSelect @bind-Value="quizModel.Subject">
+                    @foreach (var subject in Enum.GetValues<Subject>())
+                    {
+                        <option value="@((int)subject)">@subject</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <fieldset>
+                <legend>Ustawienia</legend>
+
+                <label>
+                    @* quizModel.Settings is not null. its set in BeginEdit() *@
+                    <InputCheckbox @bind-Value="quizModel.Settings!.ShuffleQuestions" />
+                    Losowa kolejność pytań
+                </label>
+                <label>
+                    <InputCheckbox @bind-Value="quizModel.Settings.ShuffleAnswers" />
+                    Losowa kolejność odpowiedzi
+                </label>
+
+                <div>
+                    <label>Limit czasu quizu (min)</label>
+                    <InputNumber @bind-Value="quizModel.Settings.TimeLimit" />
+                </div>
+                <div>
+                    <label>Limit czasu na pytanie (s)</label>
+                    <InputNumber @bind-Value="quizModel.Settings.DefaultQuestionTimeLimit" />
+                </div>
+            </fieldset>
+
+            <button type="submit" disabled="@isSavingQuiz">
+                @(isSavingQuiz ? "Zapisywanie..." : "Zapisz zmiany")
+            </button>
+        </EditForm>
+    </section>
+
+    <hr />
+
+    @* ── Questions ── *@
+    <section>
+        <h2>Pytania (@quiz.Questions.Count)</h2>
+
+        @if (quiz.Questions.Count == 0)
+        {
+            <p>Ten quiz nie ma jeszcze pytań.</p>
+        }
+        else
+        {
+            @foreach (var question in quiz.Questions)
+            {
+                <article class="question-edit">
+                    @if (editingQuestion?.id == question.Id)
+                    {
+                        @* Edit form for this question *@
+                        <EditForm Model="editingQuestion.model" OnValidSubmit="SaveQuestionAsync" FormName="@($"editQuestion-{question.Id}")">
+                            <DataAnnotationsValidator />
+
+                            <div>
+                                <label>Typ</label>
+                                <InputSelect @bind-Value="editingQuestion.model.Type">
+                                    <option value="0">Jednokrotny wybór</option>
+                                    <option value="1">Wielokrotny wybór</option>
+                                </InputSelect>
+                            </div>
+
+                            <div>
+                                <label>Treść</label>
+                                <InputTextArea @bind-Value="editingQuestion.model.Text" />
+                            </div>
+
+                            <div>
+                                <label>Punkty</label>
+                                <InputNumber @bind-Value="editingQuestion.model.Points" />
+                            </div>
+
+                            <fieldset>
+                                <legend>Odpowiedzi</legend>
+                                @for (int i = 0; i < editingQuestion.model.Answers!.Count; i++)
+                                {
+                                    var idx = i;
+                                    <div class="answer-row">
+                                        <InputText @bind-Value="editingQuestion.model.Answers[idx].Text" />
+                                        <InputCheckbox @bind-Value="editingQuestion.model.Answers[idx].IsCorrect" />
+                                        <label>Poprawna</label>
+                                    </div>
+                                }
+                            </fieldset>
+
+                            <button type="submit" disabled="@isSavingQuestion">
+                                @(isSavingQuestion ? "Zapisywanie..." : "Zapisz pytanie")
+                            </button>
+                            <button type="button" @onclick="CancelEdit">Anuluj</button>
+                        </EditForm>
+                    }
+                    else
+                    {
+                        @* Read-only view *@
+                        <header>
+                            <strong>@question.Text</strong>
+                            <small>(@question.Points pkt)</small>
+                        </header>
+                        <ul>
+                            @foreach (var a in question.Answers)
+                            {
+                                <li>
+                                    @a.Text
+                                    @if (a.IsCorrect) { <span> ✓</span> }
+                                </li>
+                            }
+                        </ul>
+
+                        <button @onclick="() => BeginEdit(question)">Edytuj</button>
+
+                        @if (confirmingDeleteQuestionId == question.Id)
+                        {
+                            <span>Usunąć pytanie?</span>
+                            <button @onclick="() => DeleteQuestionAsync(question.Id)" disabled="@isDeletingQuestion">Tak</button>
+                            <button @onclick="() => confirmingDeleteQuestionId = null" disabled="@isDeletingQuestion">Nie</button>
+                        }
+                        else
+                        {
+                            <button @onclick="() => confirmingDeleteQuestionId = question.Id">Usuń</button>
+                        }
+                    }
+                </article>
+            }
+        }
+
+        <hr />
+
+        @* Add new question *@
+        <h3>Dodaj pytanie</h3>
+        <EditForm Model="newQuestionModel" OnValidSubmit="AddQuestionAsync" FormName="addQuestion">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div>
+                <label>Typ</label>
+                <InputSelect @bind-Value="newQuestionModel.Type">
+                    <option value="0">Jednokrotny wybór</option>
+                    <option value="1">Wielokrotny wybór</option>
+                </InputSelect>
+            </div>
+
+            <div>
+                <label>Treść</label>
+                <InputTextArea @bind-Value="newQuestionModel.Text" />
+            </div>
+
+            <div>
+                <label>Punkty</label>
+                <InputNumber @bind-Value="newQuestionModel.Points" />
+            </div>
+
+            <fieldset>
+                <legend>Odpowiedzi</legend>
+                @for (int i = 0; i < newQuestionModel.Answers.Count; i++)
+                {
+                    var idx = i;
+                    <div class="answer-row">
+                        <InputText @bind-Value="newQuestionModel.Answers[idx].Text" />
+                        <InputCheckbox @bind-Value="newQuestionModel.Answers[idx].IsCorrect" />
+                        <label>Poprawna</label>
+                        @if (newQuestionModel.Answers.Count > 2)
+                        {
+                            <button type="button" @onclick="() => newQuestionModel.Answers.RemoveAt(idx)">Usuń</button>
+                        }
+                    </div>
+                }
+                @if (newQuestionModel.Answers.Count < 10)
+                {
+                    <button type="button" @onclick="() => newQuestionModel.Answers.Add(new CreateAnswerDTO{Text = string.Empty, IsCorrect = false})">
+                        Dodaj odpowiedź
+                    </button>
+                }
+            </fieldset>
+
+            <button type="submit" disabled="@isAddingQuestion">
+                @(isAddingQuestion ? "Dodawanie..." : "Dodaj pytanie")
+            </button>
+        </EditForm>
+    </section>
+
+    <hr />
+    <a href="/quiz/@quiz.Id">Wróć do podglądu</a>
+}
+
+@code {
+    [Parameter] public string QuizId { get; set; } = "";
+
+    private FullQuizDTO? quiz;
+    private string? error;
+
+    // Quiz metadata model
+    private UpdateQuizDTO quizModel = new();
+
+    // Question edit state
+    private QuestionEditState? editingQuestion;
+    private string? confirmingDeleteQuestionId;
+
+    private record QuestionEditState(string id, UpdateQuestionDTO model);
+
+    // New question
+    private CreateQuestionDTO newQuestionModel = NewCreateQuestionModel();
+
+    // Busy flags
+    private bool isSavingQuiz;
+    private bool isSavingQuestion;
+    private bool isAddingQuestion;
+    private bool isDeletingQuestion;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        error = null;
+        quiz = null;
+
+        try
+        {
+            quiz = await Api.GetFullQuizAsync(QuizId);
+            if (quiz is null)
+            {
+                error = "Nie znaleziono quizu.";
+                return;
+            }
+
+            quizModel = new UpdateQuizDTO
+            {
+                Title = quiz.Title,
+                Description = quiz.Description,
+                Subject = (int)quiz.Subject,
+                Settings = new QuizSettings
+                {
+                    ShuffleQuestions = quiz.Settings.ShuffleQuestions,
+                    ShuffleAnswers = quiz.Settings.ShuffleAnswers,
+                    DefaultQuestionTimeLimit = quiz.Settings.DefaultQuestionTimeLimit,
+                    TimeLimit = quiz.Settings.TimeLimit
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load quiz {QuizId}", QuizId);
+            error = "Nie udało się załadować quizu.";
+        }
+    }
+
+    // ── Quiz metadata ──
+    private async Task SaveQuizAsync()
+    {
+        if (isSavingQuiz || quiz is null) return;
+        isSavingQuiz = true;
+        error = null;
+
+        try
+        {
+            await Api.UpdateQuizAsync(quiz.Id, quizModel);
+            // reflect changes locally
+            quiz.Title = quizModel.Title ?? quiz.Title;
+            quiz.Description = quizModel.Description ?? quiz.Description;
+            quiz.Subject = (Subject)(quizModel.Subject ?? (int)quiz.Subject);
+            if (quizModel.Settings is not null) quiz.Settings = quizModel.Settings;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update quiz {QuizId}", quiz.Id);
+            error = "Nie udało się zapisać zmian quizu.";
+        }
+        finally { isSavingQuiz = false; }
+    }
+
+    // ── Question edit ──
+    private void BeginEdit(FullQuestionDTO question)
+    {
+        editingQuestion = new QuestionEditState(
+            id: question.Id,
+            model: new UpdateQuestionDTO
+            {
+                Type = (int)question.Type,
+                Text = question.Text,
+                Points = question.Points,
+                Answers = question.Answers.Select(a => new UpdateAnswerDTO
+                {
+                    Id = a.Id,
+                    Text = a.Text,
+                    IsCorrect = a.IsCorrect
+                }).ToList()
+            }
+        );
+    }
+
+    private void CancelEdit()
+    {
+        editingQuestion = null;
+    }
+
+    private async Task SaveQuestionAsync()
+    {
+        if (isSavingQuestion || quiz is null || editingQuestion is null) return;
+        isSavingQuestion = true;
+        error = null;
+
+        try
+        {
+            await Api.UpdateQuestionAsync(quiz.Id, editingQuestion.id, editingQuestion.model);
+            await LoadAsync(); // simplest way to reflect the full server-side update (answers replaced)
+            editingQuestion = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update question {QuestionId}", editingQuestion?.id);
+            error = "Nie udało się zapisać pytania.";
+        }
+        finally { isSavingQuestion = false; }
+    }
+
+    // ── Question delete ──
+    private async Task DeleteQuestionAsync(string questionId)
+    {
+        if (isDeletingQuestion || quiz is null) return;
+        isDeletingQuestion = true;
+        error = null;
+
+        try
+        {
+            await Api.DeleteQuestionAsync(quiz.Id, questionId);
+            quiz.Questions.RemoveAll(q => q.Id == questionId);
+            confirmingDeleteQuestionId = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to delete question {QuestionId}", questionId);
+            error = "Nie udało się usunąć pytania.";
+        }
+        finally { isDeletingQuestion = false; }
+    }
+
+    // ── Add question ──
+    private async Task AddQuestionAsync()
+    {
+        if (isAddingQuestion || quiz is null) return;
+        isAddingQuestion = true;
+        error = null;
+
+        try
+        {
+            await Api.AddQuestionAsync(quiz.Id, newQuestionModel);
+            await LoadAsync(); // re-fetch to get the new question with server-generated Ids
+            newQuestionModel = NewCreateQuestionModel();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to add question to quiz {QuizId}", quiz.Id);
+            error = "Nie udało się dodać pytania.";
+        }
+        finally { isAddingQuestion = false; }
+    }
+
+    private static CreateQuestionDTO NewCreateQuestionModel() => new()
+    {
+        Type = 0,
+        Text = "",
+        Points = 1,
+        Answers = [
+            new() { Text = "", IsCorrect = false },
+            new() { Text = "", IsCorrect = false }
+        ]
+    };
+}

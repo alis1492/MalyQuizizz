@@ -71,8 +71,14 @@ class AutoMapperProfile : Profile
 
         // Quiz related maps
         CreateMap<Quiz, QuizDTO>();
+        CreateMap<Quiz, FullQuizDTO>();
+        CreateMap<FullQuizDTO, QuizDTO>();
         CreateMap<Question, QuestionDTO>();
+        CreateMap<Question, FullQuestionDTO>();
+        CreateMap<FullQuestionDTO, QuestionDTO>();
         CreateMap<Answer, AnswerDTO>();
+        CreateMap<Answer, FullAnswerDTO>();
+        CreateMap<FullAnswerDTO, AnswerDTO>();
         CreateMap<CreateAnswerDTO, Answer>();
         CreateMap<CreateQuestionDTO, Question>();
         CreateMap<UpdateAnswerDTO, Answer>();

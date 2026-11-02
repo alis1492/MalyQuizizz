@@ -22,7 +22,15 @@ public interface IQuizService
     /// <param name="limit"></param>
     /// <param name="skip"></param>
     /// <returns>list of full quizzes or empty list</returns>
-    public Task<List<Quiz>> GetFullQuizzes(int? limit = null, int? skip = null);
+    public Task<List<FullQuizDTO>> GetFullQuizzes(int? limit = null, int? skip = null);
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="limit"></param>
+    /// <param name="skip"></param>
+    /// <returns>list of full quizzes or empty list</returns>
+    public Task<List<Quiz>> GetQuizModels(int? limit = null, int? skip = null);
 
     // Get a single quiz by id
     /// <summary>
@@ -39,7 +47,14 @@ public interface IQuizService
     /// <param name="id"></param>
     /// <returns>full quiz or throws</returns>
     /// <exception cref="DocumentNotFoundException"></exception>
-    public Task<Quiz> GetFullQuizById(ObjectId id);
+    public Task<FullQuizDTO> GetFullQuizById(ObjectId id);
+
+    /// <summary>
+    /// Get a Quiz Model
+    /// </summary>
+    /// <param name="id"></param>
+    /// <returns></returns>
+    public Task<Quiz> GetQuizModel(ObjectId id);
 
     /// <summary>
     /// 

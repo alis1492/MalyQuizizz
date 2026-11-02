@@ -1,7 +1,9 @@
 @page "/quizzes"
 @using quizShared.DTOs
-@inject IHttpClientFactory Factory
+@using quizUi.Services
+@inject QuizApiService Api
 @inject ILogger<QuizList> Logger
+@inject NavigationManager Nav
 
 <PageTitle>Quizy</PageTitle>
 
@@ -33,6 +35,26 @@ else
                 <small>
                     @quiz.Subject · @quiz.Questions.Count pytań · @quiz.Questions.Sum(q => q.Points) pkt
                 </small>
+                <button @onclick='() => Nav.NavigateTo($"quiz/{quiz.Id}/edit")'>
+                    Edytuj
+                </button>
+
+                @if (confirmingDeleteId == quiz.Id)
+                {
+                    <div class="confirm-delete">
+                        <span>Usunąć quiz?</span>
+                        <button @onclick="() => DeleteAsync(quiz.Id)" disabled="@isDeleting">
+                            @(isDeleting ? "Usuwanie..." : "Tak, usuń")
+                        </button>
+                        <button @onclick="CancelDelete" disabled="@isDeleting">Anuluj</button>
+                    </div>
+                }
+                else
+                {
+                    <button @onclick="() => RequestDelete(quiz.Id)" disabled="@isDeleting">
+                        Usuń
+                    </button>
+                }
             </li>
         }
     </ul>
@@ -41,6 +63,9 @@ else
 @code {
     private List<QuizDTO>? quizzes;
     private string? error;
+
+    private string? confirmingDeleteId;
+    private bool isDeleting;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -51,13 +76,47 @@ else
 
         try
         {
-            var http = Factory.CreateClient("QuizApiClient");
-            quizzes = await http.GetFromJsonAsync<List<QuizDTO>>("quiz") ?? [];
+            quizzes = await Api.GetQuizzesAsync() ?? [];
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to load quiz list");
             error = "Nie udało się załadować listy quizów.";
+        }
+    }
+
+    private void RequestDelete(string quizId)
+    {
+        confirmingDeleteId = quizId;
+    }
+
+    private void CancelDelete()
+    {
+        confirmingDeleteId = null;
+    }
+
+    private async Task DeleteAsync(string quizId)
+    {
+        if (isDeleting) return;
+        isDeleting = true;
+        error = null;
+
+        try
+        {
+            await Api.DeleteQuizAsync(quizId);
+            confirmingDeleteId = null;
+
+            // Remove locally so the list updates without a re-fetch
+            quizzes?.RemoveAll(q => q.Id == quizId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to delete quiz {QuizId}", quizId);
+            error = "Nie udało się usunąć quizu.";
+        }
+        finally
+        {
+            isDeleting = false;
         }
     }
 }

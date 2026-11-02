@@ -1,8 +1,4 @@
-using System.Reflection.Metadata;
-using System.Text.Json;
-using System.Threading.Tasks;
 using AutoMapper;
-using DnsClient.Protocol;
 using FluentValidation;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -11,7 +7,6 @@ using quizShared.DTOs;
 using quizShared;
 using quizApi.Exceptions;
 using quizApi.Models;
-using quizApi.Validators;
 
 namespace quizApi.Services;
 
@@ -33,7 +28,7 @@ public class QuizService(
     public async Task<List<QuizDTO>> GetQuizzes(int? limit = null, int? skip = null)
     {
         // get all full quizes
-        var quizzes = await GetFullQuizzes(limit, skip);
+        var quizzes = await GetQuizModels(limit, skip);
 
         // map them to DTO
         List<QuizDTO> quizDTOs = [];
@@ -46,7 +41,16 @@ public class QuizService(
         // return list of dtos
         return quizDTOs;
     }
-    public async Task<List<Quiz>> GetFullQuizzes(int? limit = null, int? skip = null)
+    public async Task<List<FullQuizDTO>> GetFullQuizzes(int? limit = null, int? skip = null)
+    {
+        var quizzes = await GetQuizModels();
+        
+        return quizzes
+            .Select(q => _mapper.Map<FullQuizDTO>(q))
+            .ToList();
+    }
+
+    public async Task<List<Quiz>> GetQuizModels(int? limit = null, int? skip = null)
     {
         var quizzes = await _collection
             .Find(_ => true)
@@ -62,19 +66,25 @@ public class QuizService(
         var quiz = await GetFullQuizById(id);
         return _mapper.Map<QuizDTO>(quiz);
     }
-    public async Task<Quiz> GetFullQuizById(ObjectId id)
+    public async Task<FullQuizDTO> GetFullQuizById(ObjectId id)
     {
-        return await _collection.Find<Quiz>(q => q.Id == id).FirstOrDefaultAsync()
-            ?? throw new DocumentNotFoundException("Quiz", id.ToString());
+        var quiz = await GetQuizModel(id);
+        return _mapper.Map<FullQuizDTO>(quiz);
     }
+
+    public async Task<Quiz> GetQuizModel(ObjectId id) =>
+        await _collection.Find<Quiz>(q => q.Id == id).FirstOrDefaultAsync()
+            ?? throw new DocumentNotFoundException("Quiz", id.ToString());
 
     public async Task<Quiz> CreateQuiz(CreateQuizDTO dto)
     {
+        if (!ObjectId.TryParse(dto.TeacherId, out var teacherId))
+            throw new ArgumentException($"TeacherId '{dto.TeacherId}' is not a valid ObjectId.");
         var quiz = new Quiz
         {
             Title = dto.Title,
             Description = dto.Description,
-            TeacherId = new ObjectId(dto.TeacherId),
+            TeacherId = teacherId,
             // dto validation allows unsafe cast
             Subject = (Subject)dto.Subject,
             Settings = dto.Settings
@@ -147,7 +157,7 @@ public class QuizService(
 
     public async Task<Question> UpdateQuestion(ObjectId quizId, ObjectId questionId, UpdateQuestionDTO dto)
     {
-        Quiz? quiz = await GetFullQuizById(quizId);
+        Quiz? quiz = await GetQuizModel(quizId);
         // this ?? check must be here since neither quizId nor questionId are a part of UpdateQuestionDTO
         var question = quiz.Questions
             .FirstOrDefault(q => q.Id == questionId) 

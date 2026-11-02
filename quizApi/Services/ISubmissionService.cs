@@ -22,7 +22,7 @@ public interface ISubmissionService
     /// <param name="limit"></param>
     /// <param name="skip"></param>
     /// <returns></returns>
-    public Task<List<Submission>> GetFullSubmissions(int? limit = null, int? skip = null);
+    public Task<List<Submission>> GetSubmissionModels(int? limit = null, int? skip = null);
 
     // // Get a single quiz by id
     /// <summary>
@@ -38,7 +38,7 @@ public interface ISubmissionService
     /// <param name="id"></param>
     /// <returns></returns>
     /// <exception cref="DocumentNotFoundException"></exception>
-    public Task<Submission> GetFullSubmissionById(ObjectId id);
+    public Task<Submission> GetSubmissionModelById(ObjectId id);
 
     /// <summary>
     /// Create a new submission with status InProgress
