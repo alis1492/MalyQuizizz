@@ -11,6 +11,9 @@ using quizApi.OperationFilters;
 using quizApi.Services;
 using quizApi.Validators;
 using quizApi.Options;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +24,30 @@ builder.Services
     .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
     .ValidateDataAnnotations()
     .ValidateOnStart();
+// Read the key for the token validation parameters
+var jwtOptions = builder.Configuration
+    .GetSection(JwtOptions.SectionName)
+    .Get<JwtOptions>() ?? throw new InvalidOperationException("Jwt section missing.");
+
+// Authentication + authorization
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwtOptions.Audience,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
+            ClockSkew = TimeSpan.FromMinutes(1)
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 // *** Custom Services ***
 // MongoDB Configuration
@@ -28,12 +55,14 @@ builder.Services
     .AddMongoClient()
     .AddDatabase()
     .AddCollection<Quiz>("quizes")
-    .AddCollection<Submission>("submissions");
+    .AddCollection<Submission>("submissions")
+    .AddCollection<User>("users");
 
 // General Services
 builder.Services
     .AddScoped<IQuizService, QuizService>()
     .AddScoped<ISubmissionService, SubmissionService>()
+    .AddScoped<IUserService, UserService>()
     .AddAutoMapper(cfg => { }, typeof(Program).Assembly)
     .AddValidatorsFromAssemblyContaining<CreateQuestionValidator>()
     .AddExceptionHandler<DevelopmentExceptionHandler>()
@@ -66,6 +95,8 @@ app.MapControllers();
 
 // *** Added Methods ***
 app.UseExceptionHandler("/Error");
+app.UseAuthentication();
+app.UseAuthorization();
 // *** Added Methods ***
 
 app.Run();
@@ -100,5 +131,8 @@ class AutoMapperProfile : Profile
         CreateMap<UserAnswer, UserAnswerDTO>();
         CreateMap<Submission, SubmissionDTO>();
         CreateMap<SubmitUserAnswerDTO, UserAnswer>();
+
+        // Users related maps
+        CreateMap<User, UserDTO>();
     }
 }

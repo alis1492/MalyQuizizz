@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using quizApi.Services;
@@ -5,6 +6,7 @@ using quizShared.DTOs;
 
 namespace quizApi.Controllers;
 
+[Authorize(Roles = "Teacher")]
 [ApiController]
 [Route("/api/full/quiz")]
 public class FullQuizController(ILogger<FullQuizController> logger, IQuizService quizService) : ControllerBase
