@@ -1,7 +1,9 @@
 @page "/quiz/{QuizId}/edit"
+@using Microsoft.AspNetCore.Authorization
 @using quizShared
 @using quizShared.DTOs
 @using quizUi.Services
+@attribute [Authorize(Roles = "Teacher")]
 @inject QuizApiService Api
 @inject NavigationManager Nav
 @inject ILogger<QuizEdit> Logger

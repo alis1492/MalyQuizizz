@@ -1,0 +1,60 @@
+@page "/login"
+@using quizShared.DTOs
+@using quizUi.Services
+@inject QuizApiService Api
+@inject TokenService Tokens
+@inject NavigationManager Nav
+@inject ILogger<Login> Logger
+
+<h1>Zaloguj się</h1>
+
+@if (error is not null)
+{
+    <p class="error">@error</p>
+}
+
+<EditForm Model="model" OnValidSubmit="LoginAsync" FormName="login">
+    <DataAnnotationsValidator />
+
+    <div>
+        <label>Email</label>
+        <InputText @bind-Value="model.Email" />
+    </div>
+
+    <div>
+        <label>Hasło</label>
+        <InputText @bind-Value="model.Password" type="password" />
+    </div>
+
+    <button type="submit" disabled="@isBusy">
+        @(isBusy ? "Logowanie..." : "Zaloguj")
+    </button>
+</EditForm>
+
+<p>Nie masz konta? <a href="/register">Zarejestruj się</a></p>
+
+@code {
+    private LoginDTO model = new() { Email = "", Password = "" };
+    private string? error;
+    private bool isBusy;
+
+    private async Task LoginAsync()
+    {
+        isBusy = true;
+        error = null;
+
+        var (success, token, user) = await Api.LoginAsync(model);
+
+        if (!success || token is null || user is null)
+        {
+            error = "Nieprawidłowy email lub hasło.";
+            isBusy = false;
+            return;
+        }
+
+        Logger.LogCritical(token.ToString());
+
+        Tokens.SetToken(token, user.Id, user.UserType.ToString());
+        Nav.NavigateTo("/quizzes");
+    }
+}

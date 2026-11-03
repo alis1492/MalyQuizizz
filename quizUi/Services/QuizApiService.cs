@@ -76,4 +76,30 @@ public class QuizApiService
         return http.GetFromJsonAsync<List<FullQuizDTO>>($"full/quiz{qs}");
     }
     // End of quiz related stuff
+
+    // User Management
+    public async Task<(bool Success, string? Token, UserDTO? User)> LoginAsync(LoginDTO dto)
+    {
+        var response = await http.PostAsJsonAsync("auth/login", dto);
+
+        if (!response.IsSuccessStatusCode)
+            return (false, null, null);
+
+        var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
+        return (true, result?.Token, result?.User);
+    }
+
+    public async Task<(bool Success, UserDTO? User)> RegisterAsync(RegisterUserDTO dto)
+    {
+        var response = await http.PostAsJsonAsync("auth/register", dto);
+
+        if (!response.IsSuccessStatusCode)
+            return (false, null);
+
+        var user = await response.Content.ReadFromJsonAsync<UserDTO>();
+        return (true, user);
+    }
+
+    private record LoginResponse(string Token, UserDTO User);
+    // End of user related stuff
 }

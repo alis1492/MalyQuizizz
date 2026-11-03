@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.IdentityModel.Tokens;
 using quizApi.Options;
 using quizUi.Components;
@@ -48,15 +49,26 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+builder.Services.AddCascadingAuthenticationState();
+
+
+// Custom Services
+builder.Services
+    .AddScoped<QuizStateService>()
+    .AddScoped<QuizApiService>()
+    .AddScoped<TokenService>()
+    .AddTransient<AuthHeaderHandler>()
+    .AddScoped<CircuitServicesAccessor>()
+    .AddScoped<CircuitHandler, ServicesAccessorCircuitHandler>();
+
 // HttpClientFactory for api calls
 builder.Services.AddHttpClient("QuizApiClient", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["QuizApiOptions:BaseUrl"]!);
-});
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.AddHttpMessageHandler<AuthHeaderHandler>();
 
-// Custom Services
-builder.Services.AddScoped<QuizStateService>()
-    .AddScoped<QuizApiService>();
 
 
 var app = builder.Build();
@@ -70,6 +82,9 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseAntiforgery();
 

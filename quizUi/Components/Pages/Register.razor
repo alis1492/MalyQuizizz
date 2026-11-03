@@ -1,0 +1,82 @@
+@page "/register"
+@using quizShared.DTOs
+@using quizUi.Services
+@inject QuizApiService Api
+@inject NavigationManager Nav
+
+<h1>Rejestracja</h1>
+
+@if (error is not null)
+{
+    <p class="error">@error</p>
+}
+
+<EditForm Model="model" OnValidSubmit="RegisterAsync" FormName="register">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div>
+        <label>Imię</label>
+        <InputText @bind-Value="model.FirstName" />
+    </div>
+
+    <div>
+        <label>Nazwisko</label>
+        <InputText @bind-Value="model.LastName" />
+    </div>
+
+    <div>
+        <label>Email</label>
+        <InputText @bind-Value="model.Email" />
+    </div>
+
+    <div>
+        <label>Hasło</label>
+        <InputText @bind-Value="model.Password" type="password" />
+    </div>
+
+    <div>
+        <label>Typ konta</label>
+        <InputSelect @bind-Value="model.UserType">
+            <option value="0">Uczeń</option>
+            <option value="1">Nauczyciel</option>
+        </InputSelect>
+    </div>
+
+    <button type="submit" disabled="@isBusy">
+        @(isBusy ? "Rejestracja..." : "Zarejestruj")
+    </button>
+</EditForm>
+
+<p>Masz już konto? <a href="/login">Zaloguj się</a></p>
+
+@code {
+    private RegisterUserDTO model = new()
+    {
+        FirstName = "",
+        LastName = "",
+        Email = "",
+        Password = "",
+        UserType = 0
+    };
+
+    private string? error;
+    private bool isBusy;
+
+    private async Task RegisterAsync()
+    {
+        isBusy = true;
+        error = null;
+
+        var (success, user) = await Api.RegisterAsync(model);
+
+        if (!success || user is null)
+        {
+            error = "Rejestracja nie powiodła się. Email może być już zajęty.";
+            isBusy = false;
+            return;
+        }
+
+        Nav.NavigateTo("/login");
+    }
+}

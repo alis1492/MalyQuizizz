@@ -1,6 +1,21 @@
-﻿<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+﻿@using Microsoft.AspNetCore.Components.Authorization;
+
+<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated != true)
+                {
+                    <p>Musisz się zalogować, aby uzyskać dostęp.</p>
+                    <a href="/login">Zaloguj się</a>
+                }
+                else
+                {
+                    <p>Nie masz uprawnień do tej strony.</p>
+                }
+            </NotAuthorized>
+        </AuthorizeRouteView>
+
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
