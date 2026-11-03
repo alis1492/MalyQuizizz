@@ -1,68 +1,52 @@
 ﻿@page "/"
-@using System.Text.Json
-@using quizShared
-@using quizShared.DTOs
-@inject IHttpClientFactory HttpClientFactory
-@inject ILogger<Home> Logger
-@inject IConfiguration Configuration
 
+<PageTitle>Mały Quizizz</PageTitle>
 
+<section class="hero">
+    <h1>Mały Quizizz</h1>
+    <p class="lead">
+        Prosta platforma quizowa — twórz quizy, rozwiązuj je i sprawdzaj wyniki.
+        Projekt demonstracyjny pokazujący możliwości nowoczesnego stacku .NET.
+    </p>
+</section>
 
-@* body *@
-<PageTitle>Home</PageTitle>
+<section class="stack">
+    <h2>Stack technologiczny</h2>
 
-<h1>Zapraszam na Stronę Główną</h1>
+    <div class="stack-grid">
+        <article class="stack-card">
+            <h3>Backend</h3>
+            <ul>
+                <li>
+                    <strong>ASP.NET Core</strong> — framework do budowy API REST.
+                    Obsługuje routing, walidację, dependency injection i autoryzację.
+                    Cała logika biznesowa (quizy, pytania, zgłoszenia) żyje w kontrolerach
+                    i serwisach tego projektu.
+                </li>
+                <li>
+                    <strong>MongoDB Driver</strong> — oficjalny sterownik C# do MongoDB.
+                    Mapuje dokumenty BSON na klasy C# i pozwala na elastyczne modelowanie
+                    danych — quiz jest jednym dokumentem z zagnieżdżonymi pytaniami i odpowiedziami.
+                </li>
+                <li>
+                    <strong>MongoDB Atlas</strong> — zarządzana chmura bazy danych.
+                    Hostuje kolekcje quizów, pytań i zgłoszeń, zdejmując z nas obowiązek
+                    utrzymywania własnego serwera bazy.
+                </li>
+            </ul>
+        </article>
 
-@if (_error is not null)
-{
-    <p>@_error</p>
-}
-else
-{
-    
-}
-
-<h2>Lista Quizów</h2>
-
-@foreach(var quiz in _quizzes)
-{
-    <h3>
-        <a href="quiz/@quiz.Id">@quiz.Title</a>
-    </h3>
-}
-
-
-
-@code {
-    private List<QuizDTO> _quizzes = [];
-    private string? _error;
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            // Get an httpClient that calls the api
-            var client = HttpClientFactory.CreateClient("QuizApiClient");
-
-            // Fetch quizzes from api
-            var options = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-            };
-            var quizzes = await client.GetFromJsonAsync<List<QuizDTO>>(
-                "quiz",
-                options
-            );
-
-            if(quizzes == null || quizzes?.Count == 0)
-                throw new HttpRequestException("Failed to fetch quizzes, the List is empty or null");
-            
-            _quizzes = quizzes!;
-        }
-        catch(HttpRequestException e)
-        {
-            _error = "Nie udało się pobrać quizy, sprobuj później";
-            Logger.LogError(e, e.Message);
-        }
-    }
-}
+        <article class="stack-card">
+            <h3>Frontend</h3>
+            <ul>
+                <li>
+                    <strong>Blazor (Interactive Server)</strong> — framework UI od Microsoftu,
+                    który pozwala pisać interaktywne aplikacje webowe w C# zamiast JavaScriptu.
+                    Komponenty renderują się po stronie serwera, a przeglądarka utrzymuje
+                    stałe połączenie przez SignalR — kliknięcia działają natychmiast,
+                    bez przeładowania strony.
+                </li>
+            </ul>
+        </article>
+    </div>
+</section>
