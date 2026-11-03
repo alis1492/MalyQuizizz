@@ -6,7 +6,7 @@ using quizShared.DTOs;
 
 namespace quizApi.Controllers;
 
-[Authorize(Roles = "Teacher")]
+// [Authorize(Roles = "Teacher")]
 [ApiController]
 [Route("/api/full/quiz")]
 public class FullQuizController(ILogger<FullQuizController> logger, IQuizService quizService) : ControllerBase
