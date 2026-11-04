@@ -356,6 +356,6 @@ dotnet run
 ```
 
 Wymagane:
-- .NET 8+ SDK.
+- .NET 11 SDK.
 - Connection string do MongoDB Atlas w zmiennej środowiska ATLAS_URI.
 - Porty: API `5212`, UI `5064` (lub zgodnie z `launchSettings.json`).
