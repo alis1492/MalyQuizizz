@@ -12,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+
 // Configuration
 builder.Services.AddOptions<QuizApiOptions>()
     .Bind(builder.Configuration.GetSection(QuizApiOptions.SectionName))
@@ -27,6 +28,7 @@ builder.Services
 var jwtOptions = builder.Configuration
     .GetSection(JwtOptions.SectionName)
     .Get<JwtOptions>() ?? throw new InvalidOperationException("Jwt section missing.");
+
 
 // Authentication + authorization
 builder.Services
@@ -48,11 +50,13 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+
 // HttpClientFactory for api calls
 builder.Services.AddHttpClient("QuizApiClient", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["QuizApiOptions:BaseUrl"]!);
 });
+
 
 // Custom Services
 builder.Services.AddScoped<QuizStateService>()

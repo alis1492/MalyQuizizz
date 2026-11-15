@@ -28,7 +28,7 @@ public class AuthController(
     {
         var existing = await _userService.GetByEmailAsync(dto.Email);
         if (existing is not null)
-            return Conflict(new { message = "Email already registered." });
+            return Conflict(new ErrorDTO{ Message = "Email already registered." });
 
         var user = await _userService.CreateAsync(dto);
 
@@ -46,16 +46,16 @@ public class AuthController(
         if (user is null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
         {
             _logger.LogWarning("Failed login attempt for {Email}", dto.Email);
-            return Unauthorized(new { message = "Invalid email or password." });
+            return Unauthorized(new ErrorDTO{ Message = "Invalid email or password." });
         }
 
         var token = GenerateToken(user);
         _logger.LogInformation("User logged in: {UserId}", user.Id);
 
-        return Ok(new
+        return Ok(new LoginResponseDTO
         {
-            token,
-            user = ToDto(user)
+            Token = token,
+            User = ToDto(user)
         });
     }
 
